@@ -1,0 +1,19 @@
+# Ignorar logs do Airflow
+logs/
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Dados locais
+data/
+*.csv
+*.db
+
+# Ambientes virtuais
+.env
+.env.*
+
+# Outros
+.docker/
+plugins/__pycache__/
