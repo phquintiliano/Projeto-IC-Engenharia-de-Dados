@@ -50,7 +50,7 @@ services:
       - postgres
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__WEBSERVER__SECRET_KEY=supersegredodomarllon123
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
     volumes:
@@ -58,9 +58,11 @@ services:
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
+      - ./requirements.txt:/requirements.txt
     ports:
       - "8082:8080"
-    command: webserver
+    command: >
+      bash -c "pip install -r /requirements.txt && airflow webserver"
     restart: always
 
   airflow-scheduler:
@@ -77,7 +79,8 @@ services:
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
-    command: scheduler
+    command: >
+      bash -c "pip install -r /requirements.txt && airflow scheduler"
     restart: always
 
 volumes:
