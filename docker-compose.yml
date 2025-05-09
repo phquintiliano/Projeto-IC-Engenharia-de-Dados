@@ -15,20 +15,28 @@ services:
     command: server /data --console-address ":9001"
 
   spark-master:
-    image: bitnami/spark:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-master
     environment:
       - SPARK_MODE=master
+      - PYSPARK_PYTHON=/usr/local/bin/python
+      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
     ports:
       - "7077:7077"
       - "8080:8080"
 
   spark-worker:
-    image: bitnami/spark:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-worker
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
+      - PYSPARK_PYTHON=/usr/local/bin/python
+      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
     depends_on:
       - spark-master
     ports:
@@ -44,15 +52,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   airflow-webserver:
-    image: apache/airflow:2.7.2
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-webserver
-    depends_on:
-      - postgres
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__WEBSERVER__SECRET_KEY=supersegredodomarllon123
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
+      - PYSPARK_PYTHON=/usr/local/bin/python
+      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -61,28 +71,32 @@ services:
       - ./requirements.txt:/requirements.txt
     ports:
       - "8082:8080"
-    command: >
-      bash -c "pip install -r /requirements.txt && airflow webserver"
+    command: webserver
     restart: always
+    depends_on:
+      - postgres
 
   airflow-scheduler:
-    image: apache/airflow:2.7.2
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: airflow-scheduler
-    depends_on:
-      - airflow-webserver
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__WEBSERVER__SECRET_KEY=supersegredodomarllon123
+      - PYSPARK_PYTHON=/usr/local/bin/python
+      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./requirements.txt:/requirements.txt
-    command: >
-      bash -c "pip install -r /requirements.txt && airflow scheduler"
+    command: scheduler
     restart: always
+    depends_on:
+      - airflow-webserver
 
 volumes:
   minio_data:
