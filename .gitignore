@@ -20,5 +20,3 @@ plugins/__pycache__/
 
 #ignora history
 .history
-
-.dags
