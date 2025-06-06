@@ -38,6 +38,8 @@ services:
       - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3
     depends_on:
       - spark-master
+    ports:
+      - "8081:8081"
 
   postgres:
     image: postgres:13

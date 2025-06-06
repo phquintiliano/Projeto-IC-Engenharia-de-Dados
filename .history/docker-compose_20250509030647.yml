@@ -31,13 +31,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.spark
+    container_name: spark-worker
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
-      - PYSPARK_PYTHON=/usr/local/bin/python3
-      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3
+      - PYSPARK_PYTHON=/usr/local/bin/python
+      - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
     depends_on:
       - spark-master
+    ports:
+      - "8081:8081"
 
   postgres:
     image: postgres:13
