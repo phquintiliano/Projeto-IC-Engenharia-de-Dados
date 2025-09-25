@@ -18,3 +18,6 @@ Este projeto configura um ambiente completo para pipelines de dados usando Docke
 ---
 
 ## 📁 Estrutura do Projeto
+
+$ docker run --rm -v "$(pwd -W):/app" -w //app python:3.11-slim \
+ sh -lc 'python -V; which python; python -m pip install -U pip pandas && python data/hello_spark.py'
