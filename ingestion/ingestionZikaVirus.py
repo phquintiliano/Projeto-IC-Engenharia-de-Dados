@@ -56,13 +56,11 @@ def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
         region_name="us-east-1",
     )
 
-    # garante o bucket
     buckets = s3.list_buckets().get("Buckets", [])
     existing = {b["Name"] for b in buckets}
     if bucket not in existing:
         s3.create_bucket(Bucket=bucket)
 
-    # escreve Parquet em memória e envia
     buf = io.BytesIO()
     df.to_parquet(buf, index=False, engine="pyarrow")
     buf.seek(0)
