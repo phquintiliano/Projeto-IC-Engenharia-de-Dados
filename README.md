@@ -19,5 +19,8 @@ Este projeto configura um ambiente completo para pipelines de dados usando Docke
 
 ## 📁 Estrutura do Projeto
 
-$ docker run --rm -v "$(pwd -W):/app" -w //app python:3.11-slim \
- sh -lc 'python -V; which python; python -m pip install -U pip pandas && python data/hello_spark.py'
+docker exec -it airflow-webserver bash
+
+airflow@airflow-webserver:/opt/airflow$
+
+python -c "from ingestion import ingestionZikaVirus; ingestionZikaVirus.run_ingestion_range(start_year=2016)"

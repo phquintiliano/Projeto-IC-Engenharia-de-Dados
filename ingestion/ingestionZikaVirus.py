@@ -1,30 +1,65 @@
 import os
 import io
+import time
+import random
 import pandas as pd
 import boto3
 from botocore.client import Config
 from urllib.error import URLError, HTTPError
+from datetime import datetime
 
 BASE = "https://apidadosabertos.saude.gov.br/arboviroses/zikavirus"
 LIMIT = 20
 
 
-def fetch_page(nu_ano: int, offset: int) -> pd.DataFrame:
+def fetch_page(
+    nu_ano: int,
+    offset: int,
+    max_retries: int = 10,
+    base_delay: float = 1.0,  # segundos
+) -> pd.DataFrame:
+    """
+    Busca uma página da API com retry usando exponential backoff + jitter.
+    """
     url = f"{BASE}?nu_ano={nu_ano}&limit={LIMIT}&offset={offset}"
-    try:
-        s = pd.read_json(url, typ="series")
-    except (ValueError, URLError, HTTPError, OSError) as e:
-        print(f"[ERRO] Falha ao baixar/parsear {url}: {e}", flush=True)
-        return pd.DataFrame()
 
-    params = s.get("parametros", None)
-    if not isinstance(params, list):
-        print(
-            f"[ERRO] Formato inesperado em {url}. Chaves: {list(s.index)}", flush=True
-        )
-        return pd.DataFrame()
+    attempt = 0
+    while True:
+        try:
+            print(f"[INFO] Buscando {url} (tentativa {attempt + 1})", flush=True)
+            s = pd.read_json(url, typ="series")
 
-    return pd.DataFrame(params)
+            params = s.get("parametros", None)
+            if not isinstance(params, list):
+                print(
+                    f"[ERRO] Formato inesperado em {url}. Chaves: {list(s.index)}",
+                    flush=True,
+                )
+                return pd.DataFrame()
+
+            return pd.DataFrame(params)
+
+        except (ValueError, URLError, HTTPError, OSError, IncompleteRead) as e:
+            attempt += 1
+            if attempt > max_retries:
+                print(
+                    f"[ERRO] Falha ao baixar/parsear {url} após {max_retries} tentativas: {e}",
+                    flush=True,
+                )
+                # aqui você decide: ou retorna vazio e segue, ou levanta exceção pra matar o job
+                return pd.DataFrame()
+
+            # exponential backoff + full jitter
+            max_sleep = base_delay * (2 ** (attempt - 1))
+            sleep_time = random.uniform(0, max_sleep)
+
+            print(
+                f"[WARN] Erro ao acessar {url}: {e}. "
+                f"Tentativa {attempt}/{max_retries}. "
+                f"Aguardando {sleep_time:.2f}s antes de tentar novamente...",
+                flush=True,
+            )
+            time.sleep(sleep_time)
 
 
 def fetch_ano(nu_ano: int) -> pd.DataFrame:
@@ -42,7 +77,6 @@ def fetch_ano(nu_ano: int) -> pd.DataFrame:
 
 
 def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
-
     endpoint = os.environ.get("MINIO_ENDPOINT", "http://minio:9000")
     access_key = os.environ.get("MINIO_ACCESS_KEY", "admin")
     secret_key = os.environ.get("MINIO_SECRET_KEY", "admin123")
@@ -74,12 +108,26 @@ def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
     print(f"✅ Gravado no MinIO: s3://{bucket}/{key}")
 
 
-if __name__ == "__main__":
-    df2016 = fetch_ano(2016)
-    print(df2016.head())
-    print("Total 2016:", len(df2016))
+def run_ingestion_year(nu_ano: int):
+    df = fetch_ano(nu_ano)
+    if df.empty:
+        print(f"[AVISO] Nenhum dado retornado para {nu_ano}")
+        return
+    print(df.head())
+    print(f"Total {nu_ano}: {len(df)}")
     save_parquet_to_minio(
-        df2016,
+        df,
         bucket="datalake",
-        key="raw/zikavirus/ano=2016/zikavirus_2016.parquet",
+        key=f"raw/zikavirus/ano={nu_ano}/zikavirus_{nu_ano}.parquet",
     )
+
+
+def run_ingestion_range(start_year: int = 2020, end_year: int | None = None):
+    if end_year is None:
+        end_year = datetime.now().year
+
+    for year in range(start_year, end_year + 1):
+        print("\n==============================")
+        print(f" Iniciando ingestão do ano {year}")
+        print("==============================")
+        run_ingestion_year(year)

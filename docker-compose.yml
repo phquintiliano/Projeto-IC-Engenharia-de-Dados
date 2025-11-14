@@ -31,6 +31,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.spark
+    container_name: spark-worker
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -41,6 +42,7 @@ services:
 
   postgres:
     image: postgres:13
+    container_name: postgres
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -60,18 +62,26 @@ services:
       - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=True
       - PYSPARK_PYTHON=/usr/local/bin/python
       - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
+
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=admin123
+
+      - PYTHONPATH=/opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./requirements.txt:/requirements.txt
+      - ./ingestion:/opt/airflow/ingestion
     ports:
       - "8082:8080"
     command: webserver
     restart: always
     depends_on:
       - postgres
+      - minio
 
   airflow-scheduler:
     build:
@@ -84,16 +94,25 @@ services:
       - AIRFLOW__WEBSERVER__SECRET_KEY=supersegredodomarllon123
       - PYSPARK_PYTHON=/usr/local/bin/python
       - PYSPARK_DRIVER_PYTHON=/usr/local/bin/python
+
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=admin
+      - MINIO_SECRET_KEY=admin123
+
+      - PYTHONPATH=/opt/airflow
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./requirements.txt:/requirements.txt
+      - ./ingestion:/opt/airflow/ingestion
     command: scheduler
     restart: always
     depends_on:
+      - postgres
       - airflow-webserver
+      - minio
 
 volumes:
   minio_data:
