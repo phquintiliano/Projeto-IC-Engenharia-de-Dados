@@ -1,22 +1,12 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime
-
-# Importa o módulo de ingestão
 from ingestion import ingestionZikaVirus
 
 
 def extract_data_zikavirus():
-    # aqui você decide o ano (fixo, ou pegar de variável, etc.)
     ano = 2020
     ingestionZikaVirus.run_ingestion(ano)
-    # se não quiser criar run_ingestion, você pode chamar as funções direto:
-    # df = ingestionZikaVirus.fetch_ano(ano)
-    # ingestionZikaVirus.save_parquet_to_minio(
-    #     df,
-    #     bucket="datalake",
-    #     key=f"raw/zikavirus/ano={ano}/zikavirus_{ano}.parquet",
-    # )
 
 
 with DAG(

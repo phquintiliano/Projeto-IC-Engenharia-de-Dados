@@ -6,6 +6,7 @@ import pandas as pd
 import boto3
 from botocore.client import Config
 from urllib.error import URLError, HTTPError
+from http.client import IncompleteRead  # <<–– ADICIONAR ISSO
 from datetime import datetime
 
 BASE = "https://apidadosabertos.saude.gov.br/arboviroses/zikavirus"
@@ -18,9 +19,6 @@ def fetch_page(
     max_retries: int = 10,
     base_delay: float = 1.0,  # segundos
 ) -> pd.DataFrame:
-    """
-    Busca uma página da API com retry usando exponential backoff + jitter.
-    """
     url = f"{BASE}?nu_ano={nu_ano}&limit={LIMIT}&offset={offset}"
 
     attempt = 0
@@ -46,10 +44,10 @@ def fetch_page(
                     f"[ERRO] Falha ao baixar/parsear {url} após {max_retries} tentativas: {e}",
                     flush=True,
                 )
-                # aqui você decide: ou retorna vazio e segue, ou levanta exceção pra matar o job
-                return pd.DataFrame()
+                raise RuntimeError(
+                    f"Falha ao baixar/parsear {url} após {max_retries} tentativas: {e}"
+                )
 
-            # exponential backoff + full jitter
             max_sleep = base_delay * (2 ** (attempt - 1))
             sleep_time = random.uniform(0, max_sleep)
 
