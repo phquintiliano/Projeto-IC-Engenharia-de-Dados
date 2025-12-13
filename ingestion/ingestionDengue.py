@@ -9,8 +9,8 @@ from urllib.error import URLError, HTTPError
 from http.client import IncompleteRead
 from datetime import datetime
 
-BASE = "https://apidadosabertos.saude.gov.br/arboviroses/zikavirus"
-LIMIT = 20
+BASE = "https://apidadosabertos.saude.gov.br/arboviroses/dengue"
+LIMIT = 100
 
 
 def fetch_page(
@@ -114,7 +114,7 @@ def run_ingestion_year(nu_ano: int):
     save_parquet_to_minio(
         df,
         bucket="datalake",
-        key=f"raw/zikavirus/ano={nu_ano}/zikavirus_{nu_ano}.parquet",
+        key=f"raw/dengue/ano={nu_ano}/dengue_{nu_ano}.parquet",
     )
 
 

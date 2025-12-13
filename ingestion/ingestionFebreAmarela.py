@@ -9,17 +9,16 @@ from urllib.error import URLError, HTTPError
 from http.client import IncompleteRead
 from datetime import datetime
 
-BASE = "https://apidadosabertos.saude.gov.br/arboviroses/zikavirus"
+BASE = "https://apidadosabertos.saude.gov.br/arboviroses/febre-amarela-primatas-nao-humanos"
 LIMIT = 20
 
 
 def fetch_page(
-    nu_ano: int,
     offset: int,
     max_retries: int = 10,
     base_delay: float = 1.0,
 ) -> pd.DataFrame:
-    url = f"{BASE}?nu_ano={nu_ano}&limit={LIMIT}&offset={offset}"
+    url = f"{BASE}?limit={LIMIT}&offset={offset}"
 
     attempt = 0
     while True:
@@ -62,7 +61,7 @@ def fetch_ano(nu_ano: int) -> pd.DataFrame:
     frames = []
     offset = 0
     while True:
-        df_page = fetch_page(nu_ano, offset)
+        df_page = fetch_page(offset)
         if df_page.empty:
             break
         frames.append(df_page)
@@ -104,26 +103,26 @@ def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
     print(f"✅ Gravado no MinIO: s3://{bucket}/{key}")
 
 
-def run_ingestion_year(nu_ano: int):
-    df = fetch_ano(nu_ano)
+def run_ingestion():
+    """
+    Faz a ingestão completa (sem filtro de ano) e grava em um único arquivo.
+    Se quiser, pode versionar pelo timestamp ou data de execução.
+    """
+    df = fetch_all()
     if df.empty:
-        print(f"[AVISO] Nenhum dado retornado para {nu_ano}")
+        print("[AVISO] Nenhum dado retornado da API de febre amarela (PNH).")
         return
+
     print(df.head())
-    print(f"Total {nu_ano}: {len(df)}")
+    print(f"Total de registros: {len(df)}")
+
+    # exemplo de chave simples (sem ano)
     save_parquet_to_minio(
         df,
         bucket="datalake",
-        key=f"raw/zikavirus/ano={nu_ano}/zikavirus_{nu_ano}.parquet",
+        key="raw/febre_amarela/febre_amarela_primatas_nao_humanos.parquet",
     )
 
 
-def run_ingestion_range(start_year: int = 2020, end_year: int | None = None):
-    if end_year is None:
-        end_year = datetime.now().year
-
-    for year in range(start_year, end_year + 1):
-        print("\n==============================")
-        print(f" Iniciando ingestão do ano {year}")
-        print("==============================")
-        run_ingestion_year(year)
+if __name__ == "__main__":
+    run_ingestion()
