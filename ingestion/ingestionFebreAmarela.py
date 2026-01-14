@@ -9,66 +9,43 @@ from urllib.error import URLError, HTTPError
 from http.client import IncompleteRead
 from datetime import datetime
 
-BASE = "https://apidadosabertos.saude.gov.br/arboviroses/febre-amarela-primatas-nao-humanos"
+BASE = "https://apidadosabertos.saude.gov.br/arboviroses/febre-amarela-humanos-primatas-nao-humanos"
 LIMIT = 20
 
 
 def fetch_page(
-    offset: int,
-    max_retries: int = 10,
-    base_delay: float = 1.0,
+    offset: int, max_retries: int = 10, base_delay: float = 1.0
 ) -> pd.DataFrame:
     url = f"{BASE}?limit={LIMIT}&offset={offset}"
-
     attempt = 0
+
     while True:
         try:
             print(f"[INFO] Buscando {url} (tentativa {attempt + 1})", flush=True)
-            s = pd.read_json(url, typ="series")
+            payload = pd.read_json(url, typ="series")
 
-            params = s.get("parametros", None)
-            if not isinstance(params, list):
-                print(
-                    f"[ERRO] Formato inesperado em {url}. Chaves: {list(s.index)}",
-                    flush=True,
+            rows = payload.get("febre_amarela_humanos_primatas", None)
+            if not isinstance(rows, list):
+                raise ValueError(
+                    f"Resposta sem lista esperada. Chaves: {list(payload.index)}"
                 )
-                return pd.DataFrame()
 
-            return pd.DataFrame(params)
+            return pd.DataFrame(rows)
 
         except (ValueError, URLError, HTTPError, OSError, IncompleteRead) as e:
             attempt += 1
             if attempt > max_retries:
-                print(
-                    f"[ERRO] Falha ao baixar/parsear {url} após {max_retries} tentativas: {e}",
-                    flush=True,
-                )
+                print(f"[ERRO] Falha após {max_retries} tentativas: {e}", flush=True)
                 return pd.DataFrame()
 
             max_sleep = base_delay * (2 ** (attempt - 1))
             sleep_time = random.uniform(0, max_sleep)
-
             print(
-                f"[WARN] Erro ao acessar {url}: {e}. "
-                f"Tentativa {attempt}/{max_retries}. "
-                f"Aguardando {sleep_time:.2f}s antes de tentar novamente...",
+                f"[WARN] Erro ao acessar {url}: {e}. Tentativa {attempt}/{max_retries}. "
+                f"Aguardando {sleep_time:.2f}s...",
                 flush=True,
             )
             time.sleep(sleep_time)
-
-
-def fetch_ano(nu_ano: int) -> pd.DataFrame:
-    frames = []
-    offset = 0
-    while True:
-        df_page = fetch_page(offset)
-        if df_page.empty:
-            break
-        frames.append(df_page)
-        if len(df_page) < LIMIT:
-            break
-        offset += LIMIT
-    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
@@ -100,15 +77,37 @@ def save_parquet_to_minio(df: pd.DataFrame, bucket: str, key: str):
         Body=buf.getvalue(),
         ContentType="application/octet-stream",
     )
-    print(f"✅ Gravado no MinIO: s3://{bucket}/{key}")
+    print(f"Gravado no MinIO: s3://{bucket}/{key}")
+
+
+def fetch_all(limit: int = LIMIT, max_pages: int | None = None) -> pd.DataFrame:
+    frames = []
+    offset = 0
+    pages = 0
+
+    while True:
+        df_page = fetch_page(offset)
+        if df_page.empty:
+            break
+
+        frames.append(df_page)
+
+        if len(df_page) < limit:
+            break
+
+        offset += limit
+        pages += 1
+
+        if max_pages is not None and pages >= max_pages:
+            print(f"[WARN] Parando por max_pages={max_pages}")
+            break
+
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
 def run_ingestion():
-    """
-    Faz a ingestão completa (sem filtro de ano) e grava em um único arquivo.
-    Se quiser, pode versionar pelo timestamp ou data de execução.
-    """
     df = fetch_all()
+
     if df.empty:
         print("[AVISO] Nenhum dado retornado da API de febre amarela (PNH).")
         return
@@ -116,7 +115,6 @@ def run_ingestion():
     print(df.head())
     print(f"Total de registros: {len(df)}")
 
-    # exemplo de chave simples (sem ano)
     save_parquet_to_minio(
         df,
         bucket="datalake",
