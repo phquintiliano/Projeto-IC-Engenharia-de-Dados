@@ -9,7 +9,7 @@ def extract_live(**context):
     if year != datetime.now().year:
         print("[SKIP] Live não roda para ano diferente do atual.")
         return
-    ingestionChikungunya.run_ingestion_year(year)
+    ingestionChikungunya.run(year)
 
 
 with DAG(

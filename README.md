@@ -22,5 +22,3 @@ Este projeto configura um ambiente completo para pipelines de dados usando Docke
 docker exec -it airflow-webserver bash
 
 airflow@airflow-webserver:/opt/airflow$
-
-python -c "from ingestion import ingestionZikaVirus; ingestionZikaVirus.run_ingestion_range(start_year=2016)"

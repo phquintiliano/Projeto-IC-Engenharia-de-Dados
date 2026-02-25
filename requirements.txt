@@ -3,3 +3,4 @@ delta-spark==3.1.0
 pandas
 numpy
 boto3
+pyarrow
