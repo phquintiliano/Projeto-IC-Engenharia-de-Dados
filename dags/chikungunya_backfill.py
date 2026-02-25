@@ -6,7 +6,7 @@ from ingestion import ingestionChikungunya
 
 def extract_backfill(**context):
     year = context["data_interval_start"].year
-    ingestionChikungunya.run_ingestion_year(year)
+    ingestionChikungunya.run(year)
 
 
 current_year = datetime.now().year
