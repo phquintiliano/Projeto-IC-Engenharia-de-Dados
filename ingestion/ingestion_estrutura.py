@@ -11,6 +11,8 @@ import pandas as pd
 import boto3
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
+from urllib.error import URLError, HTTPError
+from http.client import IncompleteRead
 
 import requests
 from requests.exceptions import RequestException
