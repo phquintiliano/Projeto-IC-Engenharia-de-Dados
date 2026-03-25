@@ -1,25 +1,29 @@
+from __future__ import annotations
+
+from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from datetime import datetime
-from ingestion import ingestionZikaVirus
+
+from ingestion.ingestionZikaVirus import run_zika_pipeline
 
 
-def extract_live(**context):
-    year = context["data_interval_start"].year
-    if year != datetime.now().year:
-        print("[SKIP] Live não roda para ano diferente do atual.")
-        return
-    ingestionZikaVirus.run(year)
+def _run_live():
+    return run_zika_pipeline(
+        raw_prefix="raw/zika/live/",
+        silver_prefix="silver/zika/live/",
+        record_source="minio_raw_zika_live",
+    )
 
 
 with DAG(
     dag_id="zikavirus_live",
-    start_date=datetime(2025, 11, 15, 9, 0),
-    schedule_interval="@weekly",
+    start_date=datetime(2026, 1, 1),
+    schedule="@weekly",
     catchup=False,
-    max_active_runs=1,
+    tags=["zika", "silver", "dv"],
 ) as dag:
     PythonOperator(
-        task_id="extract_live_current_year",
-        python_callable=extract_live,
+        task_id="process_zika_live",
+        python_callable=_run_live,
     )
