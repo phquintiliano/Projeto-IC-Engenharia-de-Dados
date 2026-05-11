@@ -22,7 +22,7 @@ from requests.exceptions import RequestException
 class IngestionConfig:
     dataset: str
     base_url: str
-    limit: int = 100
+    limit: int = 20
     bucket: str = "datalake"
     raw_prefix: str = "raw"
 
@@ -132,21 +132,32 @@ def fetch_year(cfg: IngestionConfig, nu_ano: int) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-def run_ingestion_year(cfg: IngestionConfig, nu_ano: int, s3=None) -> None:
-
+def run_ingestion_year(cfg: IngestionConfig, nu_ano: int, s3=None) -> dict:
     if s3 is None:
         s3 = _get_s3_cliente()
 
     df = fetch_year(cfg, nu_ano)
 
     if df.empty:
-        print(
-            f"[AVISO] Nenhum dado retornado para {cfg.dataset} em {nu_ano}", flush=True
-        )
-        return
-
-    print(df.head(), flush=True)
-    print(f"[INFO] Total {cfg.dataset} {nu_ano}: {len(df)}", flush=True)
+        return {
+            "status": "empty",
+            "dataset": cfg.dataset,
+            "year": nu_ano,
+            "rows_fetched": 0,
+            "written_keys": [],
+            "new_keys": [],
+            "has_new_data": False,
+        }
 
     key = f"{cfg.raw_prefix}/{cfg.dataset}/ano={nu_ano}/{cfg.dataset}_{nu_ano}.parquet"
     save_parquet_to_minio(s3, df=df, bucket=cfg.bucket, key=key)
+
+    return {
+        "status": "ok",
+        "dataset": cfg.dataset,
+        "year": nu_ano,
+        "rows_fetched": len(df),
+        "written_keys": [key],
+        "new_keys": [key],
+        "has_new_data": True,
+    }
